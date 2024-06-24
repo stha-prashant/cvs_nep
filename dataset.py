@@ -11,7 +11,7 @@ class SingleImageDataset(Dataset):
 
         self.transform = transform
         if self.transform is None:
-            transforms = v2.Compose([
+            self.transform = v2.Compose([
                 v2.Resize(224),
                 v2.ToImage(),
                 v2.ToDtype(torch.float32, scale=True),

@@ -11,14 +11,13 @@ def evaluate_map(model, dataloader, device):
     total_loss = 0
     criterion = nn.BCEWithLogitsLoss()
     with torch.no_grad():
-        for batch_idx, (images, labels) in (enumerate(dataloader)):
+        for batch_idx, (images, labels) in tqdm(enumerate(dataloader)):
             images = images.to(device)
             labels = labels.to(device)
             
             outputs = model(images)
             preds = torch.sigmoid(outputs)  # Sigmoid to get probabilities
-            
-            all_labels.append(labels.cpu().numpy())
+            all_labels.append(labels.cpu().numpy().astype(int))
             all_preds.append(preds.cpu().numpy())
             total_loss += criterion(outputs, labels).item()
 
