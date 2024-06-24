@@ -13,7 +13,6 @@ from tqdm import tqdm
 from options import args_parser
 from models import MultiImageModel
 from utils import setup_seed
-import torch.nn.functional as F
 
 if __name__ == '__main__':
     args = args_parser()
@@ -29,63 +28,44 @@ if __name__ == '__main__':
 
     ###################### Dataset AND Dataloaders ###################################
     transforms = v2.Compose([
-        v2.Resize(size=(224, 224), antialias=True),
-        # v2.RandomHorizontalFlip(p=0.5),
+        v2.RandomResizedCrop(size=(224, 224), antialias=True),
+        v2.RandomHorizontalFlip(p=0.5),
         v2.ToImage(),
         v2.ToDtype(torch.float32, scale=True),
-        # v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
-    # all_data = SingleImageDataset('single_images.pkl', transform=transforms)
-    if args.num_frames == 1 or args.group == 0:
-        train_set = SingleImageDataset(os.path.join(args.pkl_path, f'{args.num_frames}_images_train_group_{args.group}_{args.seed}.pkl'), transform=transforms)
-        val_set = SingleImageDataset(os.path.join(args.pkl_path, f'images_val_{args.seed}.pkl'), transform=None)
-        breakpoint()
-    else:
-        print('Taking multiple frames')
-        # assert args.num_frames >= 2, "Number of frames cannot be less than one"
-        num_frames = args.num_frames if args.group else 1
-        train_set = MultipleImageDataset(os.path.join(args.pkl_path, f'{args.num_frames}_images_train_group_{args.group}_{args.seed}.pkl'), args, transform = transforms)
-        val_set = MultipleImageDataset(os.path.join(args.pkl_path, f'images_val_{args.seed}.pkl'), args, transform=transforms)
-
-    args.num_frames = args.num_frames if args.group else 1
+    
+    train_set = MultipleImageDataset(os.path.join(args.pkl_path, f'{args.num_frames}_images_train_{args.seed}.pkl'), args.num_frames, transform = transforms)
+    val_set = MultipleImageDataset(os.path.join(args.pkl_path, f'images_val_{args.seed}.pkl'), 1, transform = transforms)
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True)
     val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=False)
     ####################################################################################
 
-    # torch.set_float32_matmul_precision('high')
+    torch.set_float32_matmul_precision('high')
     device = f'cuda:{args.gpu}'
     
-    # if args.num_frames == 1:
-    #     if args.model == 'resnet50':
-    #         weights = 'DEFAULT' if args.pretrained else None
-    #         model = torchvision.models.resnet50(weights=weights)
-    #         model.fc = nn.Sequential(nn.Linear(2048, 3, bias=True))
-    # else:
-    #     model = MultiImageModel(args)
     model = MultiImageModel(args)
     model = model.to(device)
 
     if args.ckpt_path is not None:
         raise NotImplementedError
     # model = torch.compile(model)
-    optimizer = torch.optim.AdamW(model.parameters(), args.lr)
+    optimizer = torch.optim.AdamW(model.parameters(), args.lr, weight_decay=args.reg)
     criterion = torch.nn.BCEWithLogitsLoss()
     epochs = args.epochs
 
 
     ######################### Train loop ###################################33
-    # evaluate_map(model, val_loader, 'cuda:0')
     for epoch in tqdm(range(epochs)):
         total_loss = 0
         start = time.time()
         model.train()
-        for step, (datas, labels) in tqdm(enumerate(train_loader), total=len(train_loader)):
-            optimizer.zero_grad()
+        for step, (datas, labels) in (enumerate(train_loader)):
             datas = datas.to(device)
             labels = labels.to(device)
-            output, _ = model(datas)
+            output = model(datas)
 
-            loss = F.binary_cross_entropy_with_logits(output, labels)
+            loss = criterion(output, labels)
             loss.backward()
             norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
@@ -96,7 +76,6 @@ if __name__ == '__main__':
         val_map, _, val_loss = evaluate_map(model, val_loader, 'cuda:0')
         print(f"Epoch {epoch} | validation mAP: {val_map} | avg_loss: {total_loss/(step+1)}")
 
-        torch.cuda.empty_cache()
         if args.neptune:
             run['val/mAP'].append(val_map)
             run['train/loss'].append(total_loss/(step+1))

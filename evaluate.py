@@ -3,6 +3,8 @@ from sklearn.metrics import average_precision_score
 import numpy as np
 from tqdm import tqdm
 import torch.nn as nn
+import torch.nn.functional as F
+from metric import compute_overall_metrics
 
 def evaluate_map(model, dataloader, device):
     model.eval()  # Set the model to evaluation mode
@@ -15,12 +17,12 @@ def evaluate_map(model, dataloader, device):
             images = images.to(device)
             labels = labels.to(device)
             
-            outputs = model(images)
-            preds = torch.sigmoid(outputs)  # Sigmoid to get probabilities
+            outputs, _ = model(images)
+            preds = (torch.sigmoid(outputs) > 0.5).float()  # Sigmoid to get probabilities
             
             all_labels.append(labels.cpu().numpy())
             all_preds.append(preds.cpu().numpy())
-            total_loss += criterion(outputs, labels).item()
+            total_loss += F.binary_cross_entropy_with_logits(outputs, labels).item()
 
     all_labels = np.concatenate(all_labels, axis=0)
     all_preds = np.concatenate(all_preds, axis=0)

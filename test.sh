@@ -1,0 +1,13 @@
+python3 main.py \
+    --pkl_path /scratch/samgain/CVS/ \
+    --num_frames 1 \
+    --epochs 100 \
+    --batch_size 32 \
+    --seed 1 \
+    --save /scratch/samgain/CVS/ \
+    --gpu 0 \
+    --lr 1e-4 \
+    --reg 0.01 \
+    --dropout 0.5 \
+    --group 0 \
+    --pretrained \
