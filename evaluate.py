@@ -13,13 +13,15 @@ def evaluate_map(model, dataloader, device):
     with torch.no_grad():
         for batch_idx, (images, labels) in tqdm(enumerate(dataloader)):
             images = images.to(device)
+            labels = torch.stack(labels, dim=1)
             labels = labels.to(device)
             
             outputs = model(images)
             preds = torch.sigmoid(outputs)  # Sigmoid to get probabilities
-            all_labels.append(labels.cpu().numpy().astype(int))
+            # print(labels)
+            all_labels.append(labels.cpu().numpy())
             all_preds.append(preds.cpu().numpy())
-            total_loss += criterion(outputs, labels).item()
+            total_loss += criterion(outputs, labels.float()).item()
 
     all_labels = np.concatenate(all_labels, axis=0)
     all_preds = np.concatenate(all_preds, axis=0)

@@ -29,15 +29,18 @@ transforms = v2.Compose([
     v2.ToDtype(torch.float32, scale=True),
     v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
-train_set = SingleImageDataset('single_images_mean_train.pkl', transform=transforms)
-val_set = SingleImageDataset('single_images_mean_val.pkl', transform=None)
+all_data = SingleImageDataset('single_images_mean_train.pkl', transform=transforms)
+train_set, val_set = torch.utils.data.random_split(all_data, [0.8, 0.2])
+
+# train_set = SingleImageDataset('single_images_mean_consistency_train.pkl', transform=transforms)
+# val_set = SingleImageDataset('single_images_mean_consistency_val.pkl', transform=None)
 train_loader = DataLoader(train_set, batch_size=64, shuffle=True)
 val_loader = DataLoader(val_set, batch_size=128, shuffle=False)
 ####################################################################################
 
 torch.set_float32_matmul_precision('high')
 device = 'cuda:3'
-class ResNet18_simclr(nn.Module):
+class ResNet50_simclr(nn.Module):
     def __init__(self):
         super().__init__()
         weight_path = 'https://pl-bolts-weights.s3.us-east-2.amazonaws.com/simclr/bolts_simclr_imagenet/simclr_imagenet.ckpt'
@@ -48,35 +51,33 @@ class ResNet18_simclr(nn.Module):
         return self.fc(self.encoder(x)[0])
 
 
-# model = torchvision.models.resnet50(weights=torchvision.models.ResNet50_Weights.IMAGENET1K_V2)
-# model.fc = nn.Sequential(nn.Linear(2048, 3, bias=True))
-model = ResNet18_simclr()
+model = torchvision.models.resnet50(weights=torchvision.models.ResNet50_Weights.IMAGENET1K_V2)
+model.fc = nn.Sequential(nn.Linear(2048, 3, bias=True))
+# model = ResNet50_simclr()
 model = model.to(device)
 # model = torch.compile(model)
 optimizer = torch.optim.AdamW(model.parameters(), lr=3e-5)
 criterion = torch.nn.BCEWithLogitsLoss()
-epochs = 50
+epochs = 100
 
 val_map, _, val_loss = evaluate_map(model, val_loader, device)
 
 ######################### Train loop ###################################33
 for epoch in tqdm(range(epochs)):
     total_loss = 0
-    start = time.time()
-
+    model.train()
     for step, (datas, labels) in (enumerate(train_loader)):
         datas = datas.to(device)
         labels = labels.to(device)
         output = model(datas)
 
-        loss = criterion(output, labels)
+        loss = criterion(output, labels.float())
         loss.backward()
-        norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        # norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
-        
         total_loss += loss.item()
-        # print(f'Epoch: {epoch} | Step: {step} | Time: {round((end-start)*1000)} | Loss: {loss.item()}')
-    end = time.time()
+
+    model.eval()
     val_map, _, val_loss = evaluate_map(model, val_loader, device)
     print(f"Epoch {epoch} | validation mAP: {val_map} | avg_loss: {total_loss/(step+1)}")
 

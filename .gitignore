@@ -2,3 +2,6 @@ labels/
 *.pkl
 .neptune/
 **__pycache__/
+**output_frames**
+*.json
+*.pt
