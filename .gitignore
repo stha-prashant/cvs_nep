@@ -2,3 +2,6 @@ labels/
 *.pkl
 .neptune/
 **__pycache__/
+*.ipynb
+*.png
+vit_train.py

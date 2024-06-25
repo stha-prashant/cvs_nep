@@ -1,13 +1,14 @@
 python3 main.py \
     --pkl_path /scratch/samgain/CVS/ \
-    --num_frames 1 \
+    --model vit \
+    --num_frames 3 \
+    --group 1 \
     --epochs 100 \
     --batch_size 32 \
     --seed 1 \
     --save /scratch/samgain/CVS/ \
     --gpu 0 \
-    --lr 1e-4 \
+    --lr 5e-5 \
     --reg 0.01 \
     --dropout 0.5 \
-    --group 0 \
-    --pretrained \
+    --pretrained

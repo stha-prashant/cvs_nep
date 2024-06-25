@@ -10,9 +10,9 @@ class SingleImageDataset(Dataset):
     def __init__(self, pkl_file, transform=None):
 
         self.transform = transform
-        if self.transform is None:
+        if transform is None:
             self.transform = v2.Compose([
-                v2.Resize(224),
+                v2.Resize((224,224)),
                 v2.ToImage(),
                 v2.ToDtype(torch.float32, scale=True),
                 v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
@@ -26,8 +26,8 @@ class SingleImageDataset(Dataset):
     def __getitem__(self, idx):
         item = self.data[idx]
         image = Image.fromarray(item['img_array'])
-        if self.transform:
-            image = self.transform(image)
+        # if self.transform:
+        image = self.transform(image)
         label = torch.tensor(item['label'], dtype=torch.float32)
         return image, label
 
